@@ -70,4 +70,21 @@ final class FieldConsoleProtocolTests: XCTestCase {
         XCTAssertEqual(decoded.assignmentClass, "consumer_control")
         XCTAssertEqual(decoded.description, "Next Track")
     }
+
+    func testMacOSHardwareActionsPreferCompatibleKeyboardShortcuts() throws {
+        let back = try Field75TargetParser.parse("Browser Back")
+        XCTAssertEqual(back.rawHex, "0x20082f")
+        XCTAssertEqual(back.description, "Cmd+[")
+
+        let rawWindowsBack = try Field75TargetParser.parse("Windows:Browser Back")
+        XCTAssertEqual(rawWindowsBack.rawHex, "0x302402")
+        XCTAssertEqual(rawWindowsBack.description, "Browser Back")
+    }
+
+    func testUnsupportedMacOSLaunchActionsRequireMacMacroOrWindowsPrefix() throws {
+        XCTAssertThrowsError(try Field75TargetParser.parse("Open Mail"))
+
+        let rawWindowsMail = try Field75TargetParser.parse("Windows:Open Mail")
+        XCTAssertEqual(rawWindowsMail.rawHex, "0x308a01")
+    }
 }

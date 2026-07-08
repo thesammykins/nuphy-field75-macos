@@ -106,6 +106,8 @@ public struct Field75HardwareAction: Codable, Hashable, Identifiable, Sendable {
     public let name: String
     public let category: String
     public let aliases: [String]
+    public let supportsMacOS: Bool
+    public let macOSAssignment: Field75Assignment?
 
     public var id: UInt16 { usage }
 
@@ -113,11 +115,39 @@ public struct Field75HardwareAction: Codable, Hashable, Identifiable, Sendable {
         Field75Assignment.hardwareAction(usage: usage)
     }
 
-    public init(usage: UInt16, name: String, category: String, aliases: [String]) {
+    public init(usage: UInt16, name: String, category: String, aliases: [String], supportsMacOS: Bool = true, macOSAssignment: Field75Assignment? = nil) {
         self.usage = usage
         self.name = name
         self.category = category
         self.aliases = aliases
+        self.supportsMacOS = supportsMacOS
+        self.macOSAssignment = macOSAssignment
+    }
+
+    public func assignment(for platform: Field75HardwarePlatform) -> Field75Assignment? {
+        switch platform {
+        case .macOS:
+            guard supportsMacOS else {
+                return nil
+            }
+            return macOSAssignment ?? assignment
+        case .windows:
+            return assignment
+        }
+    }
+}
+
+public enum Field75HardwarePlatform: String, CaseIterable, Codable, Identifiable, Sendable {
+    case macOS
+    case windows
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .macOS: "macOS"
+        case .windows: "Windows"
+        }
     }
 }
 
@@ -130,20 +160,29 @@ public enum Field75HardwareActionCatalog {
         Field75HardwareAction(usage: 0x00e9, name: "Volume Up", category: "Volume", aliases: ["vol-up", "volumeup"]),
         Field75HardwareAction(usage: 0x00ea, name: "Volume Down", category: "Volume", aliases: ["vol-down", "volumedown"]),
         Field75HardwareAction(usage: 0x00e2, name: "Mute", category: "Volume", aliases: ["volume-mute"]),
-        Field75HardwareAction(usage: 0x0183, name: "Launch Media Player", category: "Launch", aliases: ["media-player", "launch-media"]),
-        Field75HardwareAction(usage: 0x018a, name: "Open Mail", category: "Launch", aliases: ["mail", "email", "launch-mail"]),
-        Field75HardwareAction(usage: 0x0192, name: "Open Calculator", category: "Launch", aliases: ["calculator", "calc", "launch-calculator"]),
-        Field75HardwareAction(usage: 0x0194, name: "Open Computer", category: "Launch", aliases: ["computer", "my-computer"]),
-        Field75HardwareAction(usage: 0x0221, name: "Browser Search", category: "Browser", aliases: ["search", "web-search"]),
-        Field75HardwareAction(usage: 0x0223, name: "Browser Home", category: "Browser", aliases: ["home", "browser-home"]),
-        Field75HardwareAction(usage: 0x0224, name: "Browser Back", category: "Browser", aliases: ["back", "browser-back"]),
-        Field75HardwareAction(usage: 0x0225, name: "Browser Forward", category: "Browser", aliases: ["forward", "browser-forward"]),
-        Field75HardwareAction(usage: 0x0226, name: "Browser Stop", category: "Browser", aliases: ["browser-stop"]),
-        Field75HardwareAction(usage: 0x0227, name: "Browser Refresh", category: "Browser", aliases: ["refresh", "reload", "browser-refresh"]),
-        Field75HardwareAction(usage: 0x022a, name: "Browser Favorites", category: "Browser", aliases: ["favorites", "bookmarks", "browser-favorites"])
+        Field75HardwareAction(usage: 0x0183, name: "Launch Media Player", category: "Launch", aliases: ["media-player", "launch-media"], supportsMacOS: false),
+        Field75HardwareAction(usage: 0x018a, name: "Open Mail", category: "Launch", aliases: ["mail", "email", "launch-mail"], supportsMacOS: false),
+        Field75HardwareAction(usage: 0x0192, name: "Open Calculator", category: "Launch", aliases: ["calculator", "calc", "launch-calculator"], supportsMacOS: false),
+        Field75HardwareAction(usage: 0x0194, name: "Open Computer", category: "Launch", aliases: ["computer", "my-computer"], supportsMacOS: false),
+        Field75HardwareAction(usage: 0x0221, name: "Browser Search", category: "Browser", aliases: ["search", "web-search"], macOSAssignment: .keyboard(usage: 0x0f, modifiers: .leftCommand)),
+        Field75HardwareAction(usage: 0x0223, name: "Browser Home", category: "Browser", aliases: ["home", "browser-home"], supportsMacOS: false),
+        Field75HardwareAction(usage: 0x0224, name: "Browser Back", category: "Browser", aliases: ["back", "browser-back"], macOSAssignment: .keyboard(usage: 0x2f, modifiers: .leftCommand)),
+        Field75HardwareAction(usage: 0x0225, name: "Browser Forward", category: "Browser", aliases: ["forward", "browser-forward"], macOSAssignment: .keyboard(usage: 0x30, modifiers: .leftCommand)),
+        Field75HardwareAction(usage: 0x0226, name: "Browser Stop", category: "Browser", aliases: ["browser-stop"], macOSAssignment: .keyboard(usage: 0x29)),
+        Field75HardwareAction(usage: 0x0227, name: "Browser Refresh", category: "Browser", aliases: ["refresh", "reload", "browser-refresh"], macOSAssignment: .keyboard(usage: 0x15, modifiers: .leftCommand)),
+        Field75HardwareAction(usage: 0x022a, name: "Browser Favorites", category: "Browser", aliases: ["favorites", "bookmarks", "browser-favorites"], supportsMacOS: false)
     ]
 
     public static let byUsage: [UInt16: Field75HardwareAction] = Dictionary(uniqueKeysWithValues: all.map { ($0.usage, $0) })
+
+    public static func actions(for platform: Field75HardwarePlatform) -> [Field75HardwareAction] {
+        switch platform {
+        case .macOS:
+            all.filter { $0.assignment(for: .macOS) != nil }
+        case .windows:
+            all
+        }
+    }
 
     public static func action(named raw: String) -> Field75HardwareAction? {
         let normalized = normalize(raw)
@@ -181,7 +220,18 @@ public struct Field75AssignmentEntry: Codable, Hashable, Sendable {
 public enum Field75TargetParser {
     public static func parse(_ raw: String, defaultMacroSlot: UInt8? = nil) throws -> Field75Assignment {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalized = trimmed.lowercased().replacingOccurrences(of: " ", with: "")
+        var targetText = trimmed
+        var hardwarePlatform = Field75HardwarePlatform.macOS
+        let lowered = trimmed.lowercased()
+        if lowered.hasPrefix("windows:") || lowered.hasPrefix("win:") {
+            hardwarePlatform = .windows
+            targetText = String(trimmed.split(separator: ":", maxSplits: 1).last ?? "")
+        } else if lowered.hasPrefix("macos:") || lowered.hasPrefix("mac:") {
+            hardwarePlatform = .macOS
+            targetText = String(trimmed.split(separator: ":", maxSplits: 1).last ?? "")
+        }
+        targetText = targetText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = targetText.lowercased().replacingOccurrences(of: " ", with: "")
 
         if normalized == "restore" || normalized == "default" {
             guard let defaultMacroSlot else {
@@ -200,11 +250,14 @@ public enum Field75TargetParser {
             return .macroSlot(slot)
         }
 
-        if let hardwareAction = Field75HardwareActionCatalog.action(named: trimmed) {
-            return hardwareAction.assignment
+        if let hardwareAction = Field75HardwareActionCatalog.action(named: targetText) {
+            guard let assignment = hardwareAction.assignment(for: hardwarePlatform) else {
+                throw Field75Error.invalidArgument("\(hardwareAction.name) is not available as a hardware-only macOS assignment. Use a Mac Macro to open apps or select Windows:\(hardwareAction.name) for the raw Field Console code.")
+            }
+            return assignment
         }
 
-        let parts = trimmed
+        let parts = targetText
             .split(separator: "+")
             .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

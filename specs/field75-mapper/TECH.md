@@ -51,6 +51,22 @@ The recovered Field Console hardware action table currently includes:
 - Volume: Volume Up, Volume Down, Mute.
 - Launch/browser controls: media player, mail, calculator, computer, search, home, back, forward, stop, refresh, favorites.
 
+The app distinguishes platform behavior:
+
+- `.windows` hardware mode writes the raw `0x30` consumer-control assignment.
+- `.macOS` hardware mode writes raw consumer-control assignments only for media and volume actions that macOS handles, and uses keyboard assignments for browser actions with reliable macOS shortcuts.
+- macOS launch actions such as Open Mail and Calculator are intentionally not exposed as hardware-only macOS targets; use Mac Macro mode for those.
+
+The macOS browser shortcut assignments are:
+
+| Action | Assignment |
+| --- | --- |
+| Browser Search | `Cmd+L` |
+| Browser Back | `Cmd+[` |
+| Browser Forward | `Cmd+]` |
+| Browser Stop | `Escape` |
+| Browser Refresh | `Cmd+R` |
+
 The live G-key offsets are:
 
 | G Key | Assignment Index | Byte Offset | Default |
@@ -87,6 +103,28 @@ Local app/Shortcut/URL macros use carrier keys:
 - Matching carrier key-down events can be swallowed and translated into local actions: run a named Shortcut, open an application, or open a URL.
 
 This keeps onboard macro editing out of scope until the NuPhy macro script payload is understood, while still making the G keys useful for macOS automation.
+
+## Local Plan vs Device State
+
+The app persists row edits to user defaults immediately, but it treats them as a
+local plan until the user presses Apply to Keyboard. `Field75MapperStore` tracks
+`hasPendingKeyboardWrite` and only clears it after `applyRemapPlan` succeeds.
+
+The visible Apply to Keyboard button exists in both the toolbar and Macro Keys
+page because an icon-only confirmation affordance was too easy to miss.
+
+## Permission Repair
+
+Input Monitoring and Accessibility permissions are bound to the app's path,
+bundle identifier, and code signing requirement. Build updates can leave stale
+TCC rows that look enabled but no longer apply to the current app.
+
+The app and `script/build_and_run.sh reset-permissions` reset:
+
+- `ListenEvent` for Input Monitoring
+- `Accessibility` for the Mac Macro event tap
+
+Both use bundle ID `dev.samanthamyers.Field75Mapper`.
 
 ## Validation
 

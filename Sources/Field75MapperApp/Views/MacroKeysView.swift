@@ -13,13 +13,14 @@ struct MacroKeysView: View {
             if store.selectedDevice == nil {
                 PermissionHelpView(compact: true)
             }
+            applyCallout
             actionRunnerControls
             mappingGrid
             Spacer(minLength: 0)
         }
         .padding(24)
         .onChange(of: store.mappings) {
-            store.persistMappings()
+            store.markMappingsEdited()
         }
     }
 
@@ -44,6 +45,21 @@ struct MacroKeysView: View {
         }
     }
 
+    private var applyCallout: some View {
+        HStack(spacing: 12) {
+            Image(systemName: store.hasPendingKeyboardWrite ? "exclamationmark.circle.fill" : "info.circle")
+                .foregroundStyle(store.hasPendingKeyboardWrite ? .orange : .secondary)
+            Text(store.hasPendingKeyboardWrite ? "Pending device write. Your edits are saved in the app but are not on the keyboard yet." : "Edit rows to build a local plan, then apply it to write the keyboard.")
+                .foregroundStyle(store.hasPendingKeyboardWrite ? .primary : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            ApplyMappingsButton(title: "Apply to Keyboard", prominent: store.hasPendingKeyboardWrite)
+        }
+        .font(.callout)
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
     private var actionRunnerControls: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 12) {
@@ -51,6 +67,7 @@ struct MacroKeysView: View {
                 runnerStatus
                 Spacer()
                 accessibilityButton
+                resetPermissionsButton
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -58,7 +75,10 @@ struct MacroKeysView: View {
                     runnerToggle
                     runnerStatus
                 }
-                accessibilityButton
+                HStack {
+                    accessibilityButton
+                    resetPermissionsButton
+                }
             }
         }
         .font(.callout)
@@ -86,6 +106,15 @@ struct MacroKeysView: View {
         } label: {
             Label("Request Accessibility", systemImage: "lock.open")
         }
+    }
+
+    private var resetPermissionsButton: some View {
+        Button {
+            store.resetPrivacyPermissions()
+        } label: {
+            Label("Reset Permissions", systemImage: "arrow.counterclockwise")
+        }
+        .help("Reset Input Monitoring and Accessibility grants for this bundle ID")
     }
 
     private var mappingGrid: some View {
@@ -147,12 +176,29 @@ private struct GKeyMappingRow: View {
     private var targetControl: some View {
         switch mapping.mode {
         case .hardwareAction:
-            Picker("Action", selection: $mapping.hardwareActionUsage) {
-                ForEach(Field75HardwareActionCatalog.all) { action in
-                    Text(action.name).tag(action.usage)
+            HStack(spacing: 8) {
+                Picker("Platform", selection: $mapping.hardwarePlatform) {
+                    ForEach(Field75HardwarePlatform.allCases) { platform in
+                        Text(platform.title).tag(platform)
+                    }
                 }
+                .labelsHidden()
+                .frame(width: 100)
+                .onChange(of: mapping.hardwarePlatform) {
+                    let actions = Field75HardwareActionCatalog.actions(for: mapping.hardwarePlatform)
+                    if !actions.contains(where: { $0.usage == mapping.hardwareActionUsage }),
+                       let first = actions.first {
+                        mapping.hardwareActionUsage = first.usage
+                    }
+                }
+
+                Picker("Action", selection: $mapping.hardwareActionUsage) {
+                    ForEach(Field75HardwareActionCatalog.actions(for: mapping.hardwarePlatform)) { action in
+                        Text(action.name).tag(action.usage)
+                    }
+                }
+                .labelsHidden()
             }
-            .labelsHidden()
         case .keyboard:
             Picker("Key", selection: $mapping.keyboardUsage) {
                 ForEach(KeyboardUsageCatalog.all) { usage in

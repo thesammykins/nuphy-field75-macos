@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct PermissionHelpView: View {
+    @EnvironmentObject private var store: Field75MapperStore
     let compact: Bool
 
     var body: some View {
@@ -15,6 +16,15 @@ struct PermissionHelpView: View {
             } label: {
                 Label("Open System Settings", systemImage: "gear")
             }
+            Button {
+                store.resetPrivacyPermissions()
+            } label: {
+                Label("Reset App Permissions", systemImage: "arrow.counterclockwise")
+            }
+            Text("Reset removes stale grants for this bundle ID. Re-add /Applications/Field75Mapper.app afterward.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))

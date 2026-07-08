@@ -90,42 +90,57 @@ open_app() {
   /usr/bin/open -n "$1"
 }
 
-build_bundle
+reset_permissions() {
+  /usr/bin/tccutil reset ListenEvent "$BUNDLE_ID" || true
+  /usr/bin/tccutil reset Accessibility "$BUNDLE_ID" || true
+  echo "Reset Input Monitoring and Accessibility grants for $BUNDLE_ID"
+  echo "Re-add $INSTALLED_APP_BUNDLE in System Settings > Privacy & Security."
+}
 
 case "$MODE" in
+  reset-permissions|--reset-permissions)
+    reset_permissions
+    ;;
   run|install-run|--install-run)
+    build_bundle
     install_bundle
     open_app "$INSTALLED_APP_BUNDLE"
     ;;
   install|--install)
+    build_bundle
     install_bundle
     ;;
   dev-run|--dev-run)
+    build_bundle
     sign_bundle "$APP_BUNDLE"
     open_app "$APP_BUNDLE"
     ;;
   --debug|debug)
+    build_bundle
     install_bundle
     lldb -- "$INSTALLED_APP_BINARY"
     ;;
   --logs|logs)
+    build_bundle
     install_bundle
     open_app "$INSTALLED_APP_BUNDLE"
     /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\""
     ;;
   --telemetry|telemetry)
+    build_bundle
     install_bundle
     open_app "$INSTALLED_APP_BUNDLE"
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
   --verify|verify|install-verify|--install-verify)
+    build_bundle
     install_bundle
     open_app "$INSTALLED_APP_BUNDLE"
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|install|dev-run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|install|dev-run|reset-permissions|--debug|--logs|--telemetry|--verify]" >&2
     exit 2
     ;;
 esac

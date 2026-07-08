@@ -208,6 +208,26 @@ little-endian HID Consumer usage.
 The app can generate these assignments, but contributors should still verify
 individual actions on real hardware and operating systems.
 
+macOS does not appear to route every raw launch/browser consumer usage to a
+system action. Media and volume usages work, but raw usages such as Open Mail,
+Calculator, Computer, Browser Home, and Favorites did not produce useful macOS
+behavior in testing.
+
+Field75 Mapper therefore exposes platform-specific hardware actions:
+
+- macOS mode uses consumer-control assignments only where macOS handles them,
+  and uses keyboard assignments for browser actions where there is a reliable
+  macOS shortcut:
+  - Browser Search: `Cmd+L`
+  - Browser Back: `Cmd+[`
+  - Browser Forward: `Cmd+]`
+  - Browser Stop: `Escape`
+  - Browser Refresh: `Cmd+R`
+- Windows mode writes the raw Field Console consumer usages in the table above.
+
+For app launch behavior on macOS, use Mac Macro mode instead of raw hardware
+consumer usages.
+
 ## Static leads not implemented
 
 Static analysis found a separate 17-byte `HidD_SetOutputReport` writer in the

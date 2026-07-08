@@ -27,6 +27,8 @@ private func usage() -> Never {
       Next Track
       Play/Pause
       Volume Up
+      Browser Back
+      Windows:Browser Back
       Cmd+Shift+P
       Space
       Restore
@@ -112,10 +114,19 @@ private func printDevices(_ devices: [Field75Device]) {
 }
 
 private func printTargets() {
-    print("Hardware action targets:")
-    for action in Field75HardwareActionCatalog.all {
+    print("macOS-compatible hardware action targets:")
+    for action in Field75HardwareActionCatalog.actions(for: .macOS) {
         print("  \(action.name)")
     }
+    print("")
+    print("Windows raw Field Console hardware action targets:")
+    for action in Field75HardwareActionCatalog.actions(for: .windows) {
+        print("  Windows:\(action.name)")
+    }
+    print("")
+    print("macOS note:")
+    print("  Media and volume use consumer-control usages. Browser actions use macOS keyboard shortcuts where macOS ignores the raw launch/browser consumer usages.")
+    print("  Open Mail, Calculator, Computer, and similar launch actions should use Mac Macro mode on macOS.")
     print("")
     print("Keyboard targets:")
     for usage in KeyboardUsageCatalog.all {

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var store = Field75MapperStore()
-    @State private var showingApplyConfirmation = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -26,14 +25,7 @@ struct ContentView: View {
                         .help("Refresh devices")
                         .disabled(store.isBusy)
 
-                        Button {
-                            showingApplyConfirmation = true
-                        } label: {
-                            Label("Apply", systemImage: "checkmark")
-                                .labelStyle(.iconOnly)
-                        }
-                        .help("Apply mappings")
-                        .disabled(store.isBusy || store.effectiveSelectedDeviceID == nil)
+                        ApplyMappingsButton(title: "Apply to Keyboard", prominent: store.hasPendingKeyboardWrite)
                     }
                 }
                 .padding(.horizontal, 18)
@@ -46,14 +38,6 @@ struct ContentView: View {
         }
         .frame(minWidth: 980, minHeight: 620)
         .environmentObject(store)
-        .alert("Apply G-key mappings?", isPresented: $showingApplyConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Apply", role: .destructive) {
-                store.applyMappings()
-            }
-        } message: {
-            Text("This sends the proven Field Console capture sequence for G-key assignments only. It does not flash firmware or enter the bootloader.")
-        }
         .onAppear {
             store.refreshDevices()
             if store.actionRunnerEnabled {

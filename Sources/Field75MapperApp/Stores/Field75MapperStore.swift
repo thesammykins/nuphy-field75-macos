@@ -11,11 +11,12 @@ final class Field75MapperStore: ObservableObject {
     @Published var isBusy = false
     @Published var actionRunnerEnabled = false
     @Published var runnerStatus = "Stopped"
+    @Published var hasPendingKeyboardWrite = false
 
     private let client = Field75HIDClient()
     private let actionRunner = MacActionRunner()
     private let defaults = UserDefaults.standard
-    private let mappingsKey = "Field75Mapper.mappings.v2"
+    private let mappingsKey = "Field75Mapper.mappings.v3"
     private let runnerEnabledKey = "Field75Mapper.runner.enabled"
 
     init() {
@@ -74,6 +75,11 @@ final class Field75MapperStore: ObservableObject {
         }
     }
 
+    func markMappingsEdited() {
+        hasPendingKeyboardWrite = true
+        persistMappings()
+    }
+
     func applyMappings() {
         guard let selectedDeviceID = effectiveSelectedDeviceID else {
             log(.error, "Select the 64-byte Field75 control interface before applying.")
@@ -94,6 +100,7 @@ final class Field75MapperStore: ObservableObject {
             }
             log(.info, "Sending \(plan.frameCount) validated capture-sequence frame(s).")
             let result = try client.applyRemapPlan(plan, registryID: selectedDeviceID)
+            hasPendingKeyboardWrite = false
             log(.success, "Sent \(result.sentFrameCount) frame(s); received \(result.echoes.count) echo/status frame(s).")
             if hasMacMacroMappings && !actionRunnerEnabled {
                 log(.warning, "Mac Macro mappings need the runner enabled while this app is running.")
@@ -118,6 +125,20 @@ final class Field75MapperStore: ObservableObject {
     func requestAccessibilityPermission() {
         actionRunner.requestAccessibilityPermission()
         log(.info, "Requested Accessibility permission for the Mac Macro runner.")
+    }
+
+    func resetPrivacyPermissions() {
+        actionRunner.stop()
+        actionRunnerEnabled = false
+        defaults.set(false, forKey: runnerEnabledKey)
+        do {
+            try PermissionRepairService.resetPrivacyPermissions()
+            runnerStatus = "Permissions reset"
+            log(.success, "Reset Input Monitoring and Accessibility grants for Field75Mapper. Re-add /Applications/Field75Mapper.app in System Settings, then relaunch.")
+        } catch {
+            runnerStatus = error.localizedDescription
+            log(.error, error.localizedDescription)
+        }
     }
 
     func restartRunner() {

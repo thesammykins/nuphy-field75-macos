@@ -33,6 +33,17 @@ The build script installs to:
 
 That keeps the path and bundle identifier stable. For the signing requirement to stay stable across rebuilds, use a persistent signing identity instead of ad-hoc signing.
 
+Changing any of these can make macOS treat the build as a different app:
+
+- bundle identifier
+- app path
+- signing identity
+- entitlements
+- switching between ad-hoc and certificate signing
+
+When that happens, old Input Monitoring or Accessibility rows may remain in
+System Settings but no longer grant access to the current build.
+
 ## Recommended local build command
 
 First check available signing identities:
@@ -54,6 +65,26 @@ FIELD75_CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./script/build
 ```
 
 If `FIELD75_CODESIGN_IDENTITY` is not set, the script uses ad-hoc signing (`-`). That works for launching the app, but it can invalidate Input Monitoring or Accessibility grants after rebuilds because the signing requirement can change.
+
+## Reset stale grants
+
+Use the project script:
+
+```sh
+./script/build_and_run.sh reset-permissions
+```
+
+That runs:
+
+```sh
+tccutil reset ListenEvent dev.samanthamyers.Field75Mapper
+tccutil reset Accessibility dev.samanthamyers.Field75Mapper
+```
+
+Then add `/Applications/Field75Mapper.app` back in System Settings.
+
+The app also exposes a **Reset Permissions** button. It performs the same reset
+for the app bundle ID, stops the Mac Macro runner, and logs what to re-add.
 
 ## Creating a local signing identity
 
@@ -79,8 +110,8 @@ FIELD75_CODESIGN_IDENTITY="Field75Mapper Local" ./script/build_and_run.sh --veri
 
 1. Quit Field75 Mapper.
 2. Build and install with the stable identity.
-3. Open System Settings > Privacy & Security > Input Monitoring.
-4. Remove stale Field75Mapper entries that point to older builds.
+3. Run `./script/build_and_run.sh reset-permissions`.
+4. Open System Settings > Privacy & Security > Input Monitoring.
 5. Add `/Applications/Field75Mapper.app`.
 6. Repeat for Accessibility only if using Mac Macro mode.
 7. Relaunch Field75 Mapper.

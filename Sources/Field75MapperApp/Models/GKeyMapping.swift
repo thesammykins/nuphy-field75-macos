@@ -22,6 +22,7 @@ enum GKeyMappingMode: String, CaseIterable, Codable, Identifiable {
 struct GKeyMapping: Codable, Hashable, Identifiable {
     var gKey: GKey
     var mode: GKeyMappingMode
+    var hardwarePlatform: Field75HardwarePlatform
     var hardwareActionUsage: UInt16
     var keyboardUsage: UInt8
     var modifiers: Field75Modifier
@@ -32,7 +33,12 @@ struct GKeyMapping: Codable, Hashable, Identifiable {
     var fieldAssignment: Field75Assignment {
         switch mode {
         case .hardwareAction:
-            Field75Assignment.hardwareAction(usage: hardwareActionUsage)
+            if let action = Field75HardwareActionCatalog.byUsage[hardwareActionUsage],
+               let assignment = action.assignment(for: hardwarePlatform) {
+                assignment
+            } else {
+                Field75HardwareActionCatalog.actions(for: hardwarePlatform).first?.assignment(for: hardwarePlatform) ?? .keyboard(usage: gKey.defaultCarrierUsage)
+            }
         case .keyboard:
             Field75Assignment.keyboard(usage: keyboardUsage, modifiers: modifiers)
         case .macMacro:
@@ -45,7 +51,7 @@ struct GKeyMapping: Codable, Hashable, Identifiable {
     var summary: String {
         switch mode {
         case .hardwareAction:
-            "\(Field75HardwareActionCatalog.name(for: hardwareActionUsage)) on keyboard"
+            "\(Field75HardwareActionCatalog.name(for: hardwareActionUsage)) (\(hardwarePlatform.title)) -> \(fieldAssignment.description)"
         case .keyboard:
             fieldAssignment.description
         case .macMacro:
@@ -60,6 +66,7 @@ struct GKeyMapping: Codable, Hashable, Identifiable {
             GKeyMapping(
                 gKey: gKey,
                 mode: .restoreDefault,
+                hardwarePlatform: .macOS,
                 hardwareActionUsage: 0x00b5,
                 keyboardUsage: gKey.defaultCarrierUsage,
                 modifiers: [],
