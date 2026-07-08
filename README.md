@@ -14,6 +14,8 @@ Keyboard outputs and supported hardware media/system actions are persistent on t
 
 Mac Macros are local automation hooks. The keyboard is mapped to a carrier key such as F13-F20, and Field75 Mapper intercepts that carrier while the app is running to open an app, run a named Shortcut, or open a URL.
 
+![See how we figured out how to make this here on my blog](https://blog.sammykins.au/posts/reverse-engineering-nuphy-field75-macos-mapper/)
+
 ## Requirements
 
 - macOS 14 or newer
